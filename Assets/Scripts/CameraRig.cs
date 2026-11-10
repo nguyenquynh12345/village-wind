@@ -63,7 +63,7 @@ namespace LangGio
             if (GameUI.Blocking)
             {
                 // Đang ở menu: camera tự xoay chậm quanh làng
-                if (GameUI.Screen == UiScreen.Main) { tYaw += 4f * dt; yaw = tYaw; Apply(); }
+                if (GameUI.Screen == UiScreen.Main || GameUI.Screen == UiScreen.Villages) { tYaw += 4f * dt; yaw = tYaw; Apply(); }
                 return;
             }
             if (Cinematic)

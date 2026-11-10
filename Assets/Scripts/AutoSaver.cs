@@ -26,8 +26,10 @@ namespace LangGio
 
         void MarkDirty()
         {
-            if (GameUI.Screen != UiScreen.Main) Dirty = true;
+            if (GameUI.Screen == UiScreen.Play || GameUI.Screen == UiScreen.Pause) Dirty = true;
         }
+
+        public void ClearDirty() => Dirty = false;
 
         void Update()
         {

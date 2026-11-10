@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace LangGio
 {
-    public enum UiScreen { Main, Play, Pause }
+    public enum UiScreen { Main, Play, Pause, Villages }
 
     /// <summary>
     /// Giao diện theo bản mẫu (Docs/UI/mockup.html): thanh biểu tượng nổi ở dưới (Bàn tay · Xây · Thiên nhiên · Trang trí · Xóa · Hoàn tác),
@@ -36,6 +36,10 @@ namespace LangGio
         string openGroup;       // nhóm đang mở khay: "build" / "nature" / "decor" / null
         Tool lastTool;
         Texture2D fadeTex;
+        string renamingSlot;
+        string renameBuf = "";
+        string confirmDeleteSlot;
+        float villageScroll;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
@@ -145,6 +149,11 @@ namespace LangGio
             if (Screen == UiScreen.Play && Input.GetKeyDown(KeyCode.J) && !ToolManager.IsBusy) JournalOpen = !JournalOpen;
             else if (JournalOpen && Input.GetKeyDown(KeyCode.Escape)) { JournalOpen = false; EscConsumedFrame = Time.frameCount; }
             else if (Screen == UiScreen.Pause && Input.GetKeyDown(KeyCode.Escape)) Screen = UiScreen.Play;
+            else if (Screen == UiScreen.Villages && Input.GetKeyDown(KeyCode.Escape))
+            {
+                if (renamingSlot != null) renamingSlot = null;
+                else { confirmDeleteSlot = null; Screen = UiScreen.Main; }
+            }
         }
 
         static float S => UiKit.S;
@@ -177,6 +186,10 @@ namespace LangGio
                 case UiScreen.Main:
                     UiKit.Interactive = true;   // menu chính phải nhận click
                     DrawMain();
+                    break;
+                case UiScreen.Villages:
+                    UiKit.Interactive = true;
+                    DrawVillages();
                     break;
                 case UiScreen.Pause:
                     UiKit.Interactive = false;
@@ -697,7 +710,8 @@ namespace LangGio
             UiKit.Icon(new Rect(x + UiKit.Measure("Làng Gió", 88f, true).x + Px(10), y + Px(16), Px(54), Px(54)), "ivy", UiKit.Moss);
             UiKit.Label(new Rect(x, y + Px(112), Px(600), Px(56)), "Vẽ một nét — ngôi làng tự mọc lên.\nXây chậm, ngắm lâu.", 17f, UiKit.InkSoft, false, TextAnchor.UpperLeft, true);
             float by = y + Px(196), bw = Px(320), bh = Px(64), gap = Px(10);
-            if (SaveSystem.HasSave)
+            var slots = SaveSystem.ListSlots();
+            if (slots.Count > 0)
             {
                 if (UiKit.BigButton(new Rect(x, by, bw, bh), "m_cont", "Tiếp tục", SaveSystem.SaveInfo, "play", true))
                 {
@@ -705,12 +719,197 @@ namespace LangGio
                     else Toast("Không mở được làng đã lưu");
                 }
                 by += bh + gap;
+                if (UiKit.BigButton(new Rect(x, by, bw, bh - Px(8)), "m_list", "Các làng", $"{slots.Count} ngôi làng đã lưu", "book", false))
+                {
+                    renamingSlot = null;
+                    confirmDeleteSlot = null;
+                    villageScroll = 0f;
+                    Screen = UiScreen.Villages;
+                }
+                by += bh - Px(8) + gap;
                 if (UiKit.BigButton(new Rect(x, by, bw, bh - Px(8)), "m_new", "Làng mới", null, "plus", false)) { SaveSystem.NewVillage(); Screen = UiScreen.Play; }
             }
-            else if (UiKit.BigButton(new Rect(x, by, bw, bh), "m_new", "Làng mới", "Bắt đầu một ngôi làng", "play", true)) { SaveSystem.NewVillage(); Screen = UiScreen.Play; }
+            else
+            {
+                if (UiKit.BigButton(new Rect(x, by, bw, bh), "m_new", "Làng mới", "Bắt đầu một ngôi làng", "play", true)) { SaveSystem.NewVillage(); Screen = UiScreen.Play; }
+                by += bh + gap;
+                if (UiKit.BigButton(new Rect(x, by, bw, bh - Px(8)), "m_list", "Các làng", null, "book", false))
+                {
+                    renamingSlot = null;
+                    confirmDeleteSlot = null;
+                    villageScroll = 0f;
+                    Screen = UiScreen.Villages;
+                }
+            }
             by += bh + gap;
             if (UiKit.BigButton(new Rect(x, by, bw, bh - Px(8)), "m_quit", "Thoát", null, "exit", false, true)) Application.Quit();
             UiKit.Label(new Rect(x, SH - Px(44), Px(400), Px(20)), "v0.18 · bản dựng thử", 12f, UiKit.InkSoft, true);
+        }
+
+        // ================= Danh sách các làng =================
+        void DrawVillages()
+        {
+            UiKit.Round(new Rect(0, 0, SW, SH), new Color(0.23f, 0.18f, 0.16f, 0.4f), 0);
+            float cw = Px(304), ch = Px(256), gap = Px(16), pd = Px(28);
+            float w = cw * 3 + gap * 2 + pd * 2;
+            float h = Mathf.Min(SH - Px(48), ch * 2 + gap + Px(124));
+            var r = Reg(new Rect((SW - w) * 0.5f, (SH - h) * 0.5f, w, h));
+            UiKit.Panel(r, Px(26), 1f);
+
+            var slots = SaveSystem.ListSlots();
+            UiKit.Label(new Rect(r.x + pd, r.y + Px(22), Px(400), Px(38)), "Các làng", 28f, UiKit.Ink, true);
+            UiKit.Label(new Rect(r.x + pd, r.y + Px(60), Px(520), Px(22)), "Bấm vào thẻ để mở làng · tạo mới hoặc quản lý các ngôi làng của bạn.", 13f, UiKit.InkSoft);
+
+            float newW = UiKit.ChipWidth("Làng mới", true, 13f);
+            if (UiKit.Chip(new Rect(r.xMax - pd - Px(44) - Px(12) - newW, r.y + Px(25), newW, Px(38)), "v_new", "Làng mới", true, "plus", 13f))
+            {
+                renamingSlot = null;
+                confirmDeleteSlot = null;
+                SaveSystem.NewVillage();
+                Screen = UiScreen.Play;
+                return;
+            }
+            if (UiKit.IconButton(new Rect(r.xMax - pd - Px(44), r.y + Px(22), Px(44), Px(44)), "v_close", "close", false, "Quay lại", "Esc", true))
+            {
+                renamingSlot = null;
+                confirmDeleteSlot = null;
+                Screen = UiScreen.Main;
+                return;
+            }
+
+            var viewRect = new Rect(r.x + pd, r.y + Px(94), w - pd * 2, h - Px(94) - pd);
+            int rows = Mathf.Max(1, (slots.Count + 2) / 3);
+            float contentH = rows * ch + Mathf.Max(0, rows - 1) * gap;
+            float maxScroll = Mathf.Max(0f, contentH - viewRect.height);
+            if (Event.current.type == EventType.ScrollWheel && viewRect.Contains(Event.current.mousePosition))
+            {
+                villageScroll = Mathf.Clamp(villageScroll + Event.current.delta.y * Px(24), 0f, maxScroll);
+                Event.current.Use();
+            }
+            villageScroll = Mathf.Clamp(villageScroll, 0f, maxScroll);
+
+            if (slots.Count == 0)
+            {
+                UiKit.Label(viewRect, "Chưa có ngôi làng nào được lưu.", 15f, UiKit.InkSoft, true, TextAnchor.MiddleCenter);
+                return;
+            }
+
+            GUI.BeginClip(viewRect);
+            for (int i = 0; i < slots.Count; i++)
+            {
+                var s = slots[i];
+                int col = i % 3, row = i / 3;
+                var c = new Rect(col * (cw + gap), row * (ch + gap) - villageScroll, cw, ch);
+                if (c.yMax < 0 || c.y > viewRect.height) continue;
+
+                bool hov = UiKit.IsHover(c);
+                UiKit.Round(c, hov ? UiKit.Cream3 : UiKit.Cream2, Px(18));
+
+                // Ảnh thu nhỏ 16:9
+                float pad = Px(10);
+                float tw = cw - pad * 2, th = Mathf.Round(tw * 9f / 16f);
+                var tr = new Rect(c.x + pad, c.y + pad, tw, th);
+                var thumb = SaveSystem.LoadThumb(s.slot);
+                if (thumb)
+                {
+                    if (Event.current.type == EventType.Repaint)
+                        GUI.DrawTexture(tr, thumb, ScaleMode.ScaleAndCrop, false);
+                }
+                else
+                {
+                    UiKit.Round(tr, UiKit.Cream, Px(12));
+                    UiKit.Icon(new Rect(tr.center.x - Px(18), tr.center.y - Px(18), Px(36), Px(36)), "house", UiKit.InkSoft);
+                }
+
+                // Tên làng (hoặc ô nhập đổi tên)
+                float ty = tr.yMax + Px(8);
+                if (renamingSlot == s.slot)
+                {
+                    float saveChipW = UiKit.ChipWidth("Lưu", false, 12f);
+                    var tfRect = new Rect(c.x + pad, ty, tw - saveChipW - Px(6), Px(28));
+                    UiKit.Round(tfRect, UiKit.Cream, Px(8));
+                    UiKit.Outline(tfRect, UiKit.Accent, Px(8), Px(1.5f));
+                    GUI.SetNextControlName("rename_field");
+                    var st = new GUIStyle(UiKit.Text(13.5f, UiKit.Ink, true, TextAnchor.MiddleLeft))
+                    {
+                        padding = new RectOffset(Px(8), Px(8), 0, 0),
+                        clipping = TextClipping.Clip
+                    };
+                    renameBuf = GUI.TextField(tfRect, renameBuf ?? "", 40, st);
+                    bool enter = Event.current.type == EventType.KeyDown && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
+                    if (UiKit.Chip(new Rect(tfRect.xMax + Px(6), ty, saveChipW, Px(28)), "v_rnsave_" + i, "Lưu", true, null, 12f) || enter)
+                    {
+                        if (enter) Event.current.Use();
+                        SaveSystem.Rename(s.slot, renameBuf);
+                        renamingSlot = null;
+                        GUI.EndClip();
+                        return;
+                    }
+                }
+                else
+                {
+                    UiKit.Label(new Rect(c.x + pad + Px(2), ty, tw - Px(4), Px(22)), s.name, 15f, UiKit.Ink, true);
+                }
+
+                // Thời gian lưu + số công trình
+                string meta = $"lưu {s.savedAt} · {s.entityCount} công trình";
+                UiKit.Label(new Rect(c.x + pad + Px(2), ty + Px(23), tw - Px(4), Px(18)), meta, 11.5f, UiKit.InkSoft);
+
+                // Hàng chip: Đổi tên · Nhân bản · Xoá
+                float cy = c.yMax - pad - Px(28), chH = Px(28), cx = c.x + pad;
+                float wRen = UiKit.ChipWidth("Đổi tên", false, 11.5f);
+                if (UiKit.Chip(new Rect(cx, cy, wRen, chH), "v_ren_" + i, "Đổi tên", renamingSlot == s.slot, null, 11.5f))
+                {
+                    renamingSlot = renamingSlot == s.slot ? null : s.slot;
+                    renameBuf = s.name;
+                    confirmDeleteSlot = null;
+                }
+                cx += wRen + Px(4);
+
+                float wDup = UiKit.ChipWidth("Nhân bản", false, 11.5f);
+                if (UiKit.Chip(new Rect(cx, cy, wDup, chH), "v_dup_" + i, "Nhân bản", false, null, 11.5f))
+                {
+                    renamingSlot = null;
+                    confirmDeleteSlot = null;
+                    SaveSystem.Duplicate(s.slot);
+                    Toast("Đã nhân bản làng");
+                    GUI.EndClip();
+                    return;
+                }
+                cx += wDup + Px(4);
+
+                bool confirming = confirmDeleteSlot == s.slot;
+                string delLabel = confirming ? "Chắc chưa?" : "Xoá";
+                float wDel = UiKit.ChipWidth(delLabel, false, 11.5f);
+                if (UiKit.Chip(new Rect(cx, cy, wDel, chH), "v_del_" + i, delLabel, confirming, null, 11.5f))
+                {
+                    renamingSlot = null;
+                    if (confirming)
+                    {
+                        SaveSystem.Delete(s.slot);
+                        confirmDeleteSlot = null;
+                        Toast("Đã xoá làng");
+                        GUI.EndClip();
+                        return;
+                    }
+                    confirmDeleteSlot = s.slot;
+                }
+
+                // Click vào vùng trên của thẻ (ảnh / tên) → mở làng
+                var openArea = new Rect(c.x, c.y, c.width, cy - c.y - Px(2));
+                if (renamingSlot != s.slot && Event.current.type == EventType.MouseDown && Event.current.button == 0 && openArea.Contains(Event.current.mousePosition))
+                {
+                    Event.current.Use();
+                    Sfx.Play(SfxId.Click, 1f, 0.5f);
+                    renamingSlot = null;
+                    confirmDeleteSlot = null;
+                    if (SaveSystem.Load(s.slot)) Screen = UiScreen.Play;
+                    else Toast("Không mở được làng đã lưu");
+                    GUI.EndClip();
+                    return;
+                }
+            }
+            GUI.EndClip();
         }
 
         // ================= Tạm dừng =================
