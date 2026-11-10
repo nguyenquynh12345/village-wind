@@ -40,6 +40,7 @@ namespace LangGio
         string renameBuf = "";
         string confirmDeleteSlot;
         float villageScroll;
+        int journalPage;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
@@ -149,6 +150,8 @@ namespace LangGio
             if (Screen == UiScreen.Play && !JournalOpen && !ToolManager.IsBusy && Input.GetKeyDown(KeyCode.F)) { TogglePhoto(); return; }
             if (Screen == UiScreen.Play && Input.GetKeyDown(KeyCode.J) && !ToolManager.IsBusy) JournalOpen = !JournalOpen;
             else if (JournalOpen && Input.GetKeyDown(KeyCode.Escape)) { JournalOpen = false; EscConsumedFrame = Time.frameCount; }
+            else if (JournalOpen && Input.GetKeyDown(KeyCode.LeftArrow)) { journalPage = Mathf.Max(0, journalPage - 1); Sfx.Play(SfxId.Click, 1f, 0.5f); }
+            else if (JournalOpen && Input.GetKeyDown(KeyCode.RightArrow)) { journalPage = Mathf.Min((Combos.Count - 1) / 15, journalPage + 1); Sfx.Play(SfxId.Click, 1f, 0.5f); }
             else if (Screen == UiScreen.Pause && Input.GetKeyDown(KeyCode.Escape)) Screen = UiScreen.Play;
             else if (Screen == UiScreen.Villages && Input.GetKeyDown(KeyCode.Escape))
             {
@@ -1040,19 +1043,24 @@ namespace LangGio
         }
 
         // ================= Sổ khám phá =================
-        static readonly string[] JournalIcons = { "wall", "path", "wall", "pond", "tree", "house", "pond", "tower", "prop", "pond", "pond", "tower", "ground", "tree", "tower" };
+        static readonly string[] JournalIcons =
+        {
+            "wall", "path", "wall", "pond", "tree", "house", "pond", "tower", "prop", "pond", "pond", "tower", "ground", "tree", "tower",
+            "pond", "nature", "decor", "terrain", "pond", "pond"
+        };
         static readonly Color[] JournalTints =
         {
             Palette.Hex("#E6DED2"), Palette.Hex("#E9DCC0"), Palette.Hex("#E6DED2"), Palette.Hex("#D6E9EF"), Palette.Hex("#DCEACB"),
             Palette.Hex("#F6DED4"), Palette.Hex("#D6E9EF"), Palette.Hex("#F6DED4"), Palette.Hex("#F6E3A9"), Palette.Hex("#D6E9EF"),
-            Palette.Hex("#DCEACB"), Palette.Hex("#F6E3A9"), Palette.Hex("#DCEACB"), Palette.Hex("#DCEACB"), Palette.Hex("#F6DED4")
+            Palette.Hex("#DCEACB"), Palette.Hex("#F6E3A9"), Palette.Hex("#DCEACB"), Palette.Hex("#DCEACB"), Palette.Hex("#F6DED4"),
+            Palette.Hex("#D6E9EF"), Palette.Hex("#E9DCC0"), Palette.Hex("#F6E3A9"), Palette.Hex("#F6DED4"), Palette.Hex("#D6E9EF"), Palette.Hex("#D6E9EF")
         };
 
         void DrawJournal()
         {
             UiKit.Round(new Rect(0, 0, SW, SH), new Color(0.23f, 0.18f, 0.16f, 0.4f), 0);
             float cw = Px(186), ch = Px(150), gap = Px(12), pd = Px(30);
-            float w = cw * 5 + gap * 4 + pd * 2, h = ch * 3 + gap * 2 + Px(130);
+            float w = cw * 5 + gap * 4 + pd * 2, h = ch * 3 + gap * 2 + Px(156);
             var r = Reg(new Rect((SW - w) * 0.5f, (SH - h) * 0.5f, w, h));
             UiKit.Panel(r, Px(26), 1f);
             var combos = Combos.I;
@@ -1067,9 +1075,15 @@ namespace LangGio
             UiKit.Label(new Rect(px + Combos.Count * Px(15) + Px(4), r.y + Px(32), Px(50), Px(26)), $"{found}/{Combos.Count}", 13f, UiKit.InkSoft, true);
             if (UiKit.IconButton(new Rect(r.xMax - pd - Px(44), r.y + Px(22), Px(44), Px(44)), "j_close", "close", false, "Đóng", "J", true)) JournalOpen = false;
 
-            for (int i = 0; i < Combos.Count; i++)
+            int pages = (Combos.Count + 14) / 15;
+            journalPage = Mathf.Clamp(journalPage, 0, pages - 1);
+            int start = journalPage * 15;
+            int end = Mathf.Min(Combos.Count, start + 15);
+
+            for (int i = start; i < end; i++)
             {
-                int col = i % 5, row = i / 5;
+                int idx = i - start;
+                int col = idx % 5, row = idx / 5;
                 var c = new Rect(r.x + pd + col * (cw + gap), r.y + Px(104) + row * (ch + gap), cw, ch);
                 bool f = combos && combos.Found[i];
                 if (f) UiKit.Round(c, UiKit.Cream2, Px(18));
@@ -1081,11 +1095,23 @@ namespace LangGio
                 UiKit.Label(new Rect(c.x + Px(14), c.y + Px(62), cw - Px(24), Px(22)), f ? Combos.Names[i] : "Chưa tìm ra", 14.5f, f ? UiKit.Ink : UiKit.InkSoft, true);
                 UiKit.Label(new Rect(c.x + Px(14), c.y + Px(86), cw - Px(24), ch - Px(92)), f ? Combos.Descs[i] : Combos.Hints[i], 11.5f, UiKit.InkSoft, false, TextAnchor.UpperLeft, true);
             }
+
+            // chuyển trang ‹ › (hoặc phím ←/→)
+            float navY = r.yMax - Px(42), navBtnW = Px(38), navH = Px(32), lblW = Px(84);
+            float navX = r.center.x - (navBtnW * 2 + lblW) * 0.5f;
+            GUI.enabled = journalPage > 0;
+            if (UiKit.Chip(new Rect(navX, navY, navBtnW, navH), "j_prev", "‹", false, null, 16f)) journalPage--;
+            GUI.enabled = true;
+            UiKit.Label(new Rect(navX + navBtnW, navY, lblW, navH), $"Trang {journalPage + 1}/{pages}", 13f, UiKit.InkSoft, true, TextAnchor.MiddleCenter);
+            GUI.enabled = journalPage < pages - 1;
+            if (UiKit.Chip(new Rect(navX + navBtnW + lblW, navY, navBtnW, navH), "j_next", "›", false, null, 16f)) journalPage++;
+            GUI.enabled = true;
+
             if (combos && combos.SuppressedCount > 0)
             {
                 string t = $"Hiện lại {combos.SuppressedCount} chi tiết đã tắt";
                 float bw = UiKit.ChipWidth(t, true, 12.5f);
-                if (UiKit.Chip(new Rect(r.xMax - pd - bw, r.yMax - Px(18) - Px(10), bw, Px(32)), "j_restore", t, false, "eye", 12.5f))
+                if (UiKit.Chip(new Rect(r.xMax - pd - bw, navY, bw, navH), "j_restore", t, false, "eye", 12.5f))
                     History.Execute(new ComboSuppressCommand(false, combos.Suppressed.ToArray()));
             }
         }
@@ -1097,7 +1123,7 @@ namespace LangGio
             toasts.RemoveAll(t => t.until < Time.unscaledTime);
             foreach (var (msg, until) in toasts)
             {
-                bool disc = msg.StartsWith("Khám phá mới");
+                bool disc = msg.StartsWith("Khám phá mới") || msg.StartsWith("✨ Khám phá mới");
                 var ts = UiKit.Measure(msg, 14f, true);
                 float h = Px(48);
                 float w = ts.x + Px(30) + (disc ? Px(42) : 0);
