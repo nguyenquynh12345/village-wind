@@ -235,8 +235,9 @@ namespace LangGio
                 var fp = h.Footprint;
                 // E4
                 float best = 3f;
-                Vector2 bestP = default;
-                PondEntity bestPond = null;
+                Vector2 bestP = default, bestDir = default;
+                float bestWaterY = 0f, pierReach = 2.6f;
+                bool hasPier = false;
                 foreach (var pond in ponds)
                 {
                     if (pond.Mask == null || !pond.WorldRect.Overlaps(new Rect(fp.c.x - 15f, fp.c.y - 15f, 30f, 30f))) continue;
@@ -244,18 +245,45 @@ namespace LangGio
                     {
                         var p = new Vector2(PondMask.Center(cell.x), PondMask.Center(cell.y));
                         float d = BoxDist(fp, p);
-                        if (d < best) { best = d; bestP = p; bestPond = pond; }
+                        if (d < best)
+                        {
+                            best = d;
+                            bestP = p;
+                            bestDir = (pond.Mask.Centroid() - p).normalized;
+                            bestWaterY = pond.WaterLevel;
+                            pierReach = 2.6f;
+                            hasPier = true;
+                        }
                     }
                 }
-                if (bestPond != null) hit[3] = true;
-                if (bestPond != null && Begin(3, bestP))
+                foreach (var rv in rivers)
                 {
-                    var dir = (bestPond.Mask.Centroid() - bestP).normalized;
-                    var mid = bestP + dir * 1.2f;
+                    if (rv.Points == null || rv.Points.Count < 2 || !rv.Area.Overlaps(new Rect(fp.c.x - 15f, fp.c.y - 15f, 30f, 30f))) continue;
+                    Geo.Closest(rv.Points, fp.c, out _, out var q, out _);
+                    var toHouse = (fp.c - q);
+                    if (toHouse.sqrMagnitude < 1e-4f) continue;
+                    var bankPt = q + toHouse.normalized * (rv.Width * 0.5f);
+                    float d = BoxDist(fp, bankPt);
+                    if (d < best)
+                    {
+                        best = d;
+                        bestP = bankPt;
+                        bestDir = -toHouse.normalized;
+                        bestWaterY = rv.WaterLevelAt(q);
+                        pierReach = Mathf.Min(2.6f, rv.Width * 0.4f + 0.3f);
+                        hasPier = true;
+                    }
+                }
+                if (hasPier) hit[3] = true;
+                if (hasPier && Begin(3, bestP))
+                {
+                    var dir = bestDir;
+                    float deckLen = pierReach + 0.4f;
+                    var mid = bestP + dir * ((pierReach - 0.2f) * 0.5f);
                     var rot = Quaternion.LookRotation(Geo.X0Z(dir));
-                    float y = bestPond.WaterLevel + 0.35f;
-                    Box(new Vector3(mid.x, y, mid.y), new Vector3(1.3f, 0.12f, 3.0f), Palette.Wood, rot);
-                    var end = bestP + dir * 2.6f;
+                    float y = bestWaterY + 0.35f;
+                    Box(new Vector3(mid.x, y, mid.y), new Vector3(1.3f, 0.12f, deckLen), Palette.Wood, rot);
+                    var end = bestP + dir * pierReach;
                     var side = new Vector2(-dir.y, dir.x) * 0.55f;
                     Box(new Vector3(end.x + side.x, y - 0.3f, end.y + side.y), new Vector3(0.15f, 1.0f, 0.15f), Palette.Wood, rot);
                     Box(new Vector3(end.x - side.x, y - 0.3f, end.y - side.y), new Vector3(0.15f, 1.0f, 0.15f), Palette.Wood, rot);

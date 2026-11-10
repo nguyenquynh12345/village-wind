@@ -31,6 +31,7 @@ namespace LangGio
 
         void Update()
         {
+            Boat.TickFish(root);
             if (pending <= 0f) return;
             pending -= Time.deltaTime;
             if (pending <= 0f) Refresh();
@@ -94,6 +95,9 @@ namespace LangGio
             butterflies.Clear();
             var pts = HeightField.I.PaintedPoints(1, 14, 11);
             for (int i = 0; i < pts.Count; i++) butterflies.Add(MakeButterfly(pts[i], i));
+
+            // Thuyền trên ao lớn / sông dài (S4)
+            Boat.RefreshAll(root);
         }
 
         // ---------- Dựng con vật (khối xám) ----------
