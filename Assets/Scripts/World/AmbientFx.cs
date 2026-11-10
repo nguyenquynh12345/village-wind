@@ -10,9 +10,18 @@ namespace LangGio
     public class AmbientFx : MonoBehaviour
     {
         static AmbientFx I;
+        static readonly Color[] AutumnLeafColors =
+        {
+            Palette.Hex("#F2A23A"), Palette.Hex("#D9572B"), Palette.Hex("#E8C14F"), Palette.Hex("#B5462A")
+        };
+
         ParticleSystem petals, fireflies, dust, rain, smoke;
         CameraRig rig;
         Material fireflyMat;
+        float leafTimer;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() { I = null; sphere = null; }
 
         void Start()
         {
@@ -32,7 +41,7 @@ namespace LangGio
                 SetRate(petals, 0); SetRate(fireflies, 0);
                 return;
             }
-            Vector3 c = rig ? rig.target : Vector3.zero;
+            Vector3 c = WalkMode.Active && Camera.main ? Camera.main.transform.position : rig ? rig.target : Vector3.zero;
             if (petals) petals.transform.position = c + Vector3.up * 7f;
             if (fireflies) fireflies.transform.position = c + Vector3.up * 1.2f;
             if (rain) rain.transform.position = c + Vector3.up * 14f;
@@ -44,11 +53,49 @@ namespace LangGio
             SetRate(rain, season == 3 ? 0f : rainK * 900f);
             if (season == 3) SetRate(petals, 70f + rainK * 260f);           // tuyết rơi (dày hơn khi trời "mưa")
             else if (rainK > 0.3f) SetRate(petals, 0f);
-            else SetRate(petals, night ? 0f : evening ? 2f : season == 2 ? 9f : 5f);
+            else SetRate(petals, night ? 0f : evening ? 2f : season == 2 ? 3f : 5f);
             SetRate(fireflies, season == 3 || rainK > 0.3f ? 0f : night ? 14f : evening ? 4f : 0f);
+
+            // mùa thu: lá vàng/cam rơi lác đác quanh các cây trong bán kính 40 m quanh camera
+            if (season == 2 && rainK <= 0.3f && !night && petals)
+            {
+                leafTimer -= Time.deltaTime;
+                if (leafTimer <= 0f)
+                {
+                    leafTimer = Settings.Lite ? 0.3f : 0.14f;
+                    EmitTreeLeaves(c);
+                }
+            }
 
             if (fireflyMat)   // đom đóm nhấp nháy đồng loạt nhẹ
                 Palette.Glow(fireflyMat, Palette.Hex("#D9FF7A"), 2.2f + Mathf.Sin(Time.time * 3.1f) * 0.6f);
+        }
+
+        void EmitTreeLeaves(Vector3 center)
+        {
+            if (!HeightField.I) return;
+            var camXZ = new Vector2(center.x, center.z);
+            int emitted = 0;
+            foreach (var t in EntityManager.OfType<TreeEntity>())
+            {
+                if (!t || t.Hidden) continue;
+                var xz = t.XZ;
+                if ((xz - camXZ).sqrMagnitude > 40f * 40f) continue;
+                if (Random.value > 0.25f) continue;
+                float s = Mathf.Clamp(t.P.size, 0.6f, 1.6f);
+                float g = HeightField.I.HeightAt(xz.x, xz.y);
+                float ang = Random.value * Mathf.PI * 2f;
+                float r = Random.Range(0.25f, 1.35f) * s;
+                var ep = new ParticleSystem.EmitParams
+                {
+                    position = new Vector3(xz.x + Mathf.Cos(ang) * r, g + Random.Range(1.8f, 3.4f) * s, xz.y + Mathf.Sin(ang) * r),
+                    startColor = AutumnLeafColors[Random.Range(0, AutumnLeafColors.Length)],
+                    startSize = Random.Range(0.08f, 0.15f),
+                    startLifetime = Random.Range(5f, 8.5f),
+                };
+                petals.Emit(ep, 1);
+                if (++emitted >= 4) break;
+            }
         }
 
         static Mesh sphere;

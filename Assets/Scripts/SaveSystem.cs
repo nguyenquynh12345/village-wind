@@ -27,6 +27,7 @@ namespace LangGio
             public string savedAt;
             public float time = 0.72f;
             public bool autoRun;
+            public bool seasonAuto;
             public int season = 1, weather;   // mùa + thời tiết của riêng làng này
             public string terrain;
             public string groundPaint;
@@ -178,7 +179,7 @@ namespace LangGio
 
             if (Combos.I) { d.found.AddRange(Combos.I.Found); d.hiddenDetails.AddRange(Combos.I.Suppressed); }
             if (DayCycle.I) { d.time = DayCycle.I.time; d.autoRun = DayCycle.I.autoRun; }
-            d.season = Settings.Season; d.weather = Settings.Weather;
+            d.season = Settings.Season; d.weather = Settings.Weather; d.seasonAuto = Settings.SeasonAuto;
             var rig = Camera.main ? Camera.main.GetComponent<CameraRig>() : null;
             if (rig) rig.GetState(out d.yaw, out d.pitch, out d.dist, out d.target);
 
@@ -297,7 +298,7 @@ namespace LangGio
             if (!hasIvy) EntityManager.Spawn("Ivy", "{}");
 
             if (Combos.I) { Combos.I.SetFound(d.found); Combos.I.SetSuppressedList(d.hiddenDetails); }
-            Settings.Season = d.season; Settings.Weather = d.weather;
+            Settings.Season = d.season; Settings.Weather = d.weather; Settings.SeasonAuto = d.seasonAuto;
             if (DayCycle.I) { DayCycle.I.autoRun = d.autoRun; DayCycle.I.SetTime(d.time); }
             var rig = Camera.main ? Camera.main.GetComponent<CameraRig>() : null;
             if (rig) rig.SetState(d.yaw, d.pitch, d.dist, d.target);
@@ -328,7 +329,7 @@ namespace LangGio
             EntityManager.Spawn("Ivy", "{}");
             if (Combos.I) { Combos.I.SetFound(null); Combos.I.SetSuppressedList(null); }
             if (withLandscape) StartLandscape.Generate(UnityEngine.Random.Range(1, 100000));   // đồi, hồ, rừng có sẵn — chỉ việc xây nhà
-            Settings.Season = 1; Settings.Weather = 0;
+            Settings.Season = 1; Settings.Weather = 0; Settings.SeasonAuto = false;
             if (DayCycle.I) { DayCycle.I.autoRun = false; DayCycle.I.SetTime(0.72f); }
             var rig = Camera.main ? Camera.main.GetComponent<CameraRig>() : null;
             if (rig) rig.SetState(35f, 42f, 38f, Vector3.zero);

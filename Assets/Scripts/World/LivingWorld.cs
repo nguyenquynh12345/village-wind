@@ -29,7 +29,7 @@ namespace LangGio
             bool n = DayCycle.IsNight;
             if (n != night || !applied) { night = n; applied = true; ApplyWindows(); }
 
-            float bob = Mathf.Sin(Time.time * 1.3f) * 0.03f;
+            float bob = Mathf.Sin(Time.time * 1.3f) * 0.03f * (1f - Seasons.Snow);
             foreach (var w in waters)
                 if (w) w.localPosition = new Vector3(0, bob, 0);
 
@@ -45,12 +45,13 @@ namespace LangGio
             }
 
             {
-                // khói: thưa ban ngày, dày buổi tối / mùa đông / trời mưa (nhà đang sưởi)
-                bool cozy = DayCycle.IsEvening || Settings.Season == 3 || Seasons.Rain > 0.5f;
+                // khói: thưa ban ngày, dày buổi tối / trời mưa, mùa đông nhiều và dày hơn hẳn (nhà đang sưởi)
+                bool winter = Settings.Season == 3;
+                bool cozy = DayCycle.IsEvening || winter || Seasons.Rain > 0.5f;
                 puffTimer -= Time.deltaTime;
                 if (puffTimer <= 0f)
                 {
-                    puffTimer = cozy ? 0.32f : 0.8f;
+                    puffTimer = winter ? 0.18f : cozy ? 0.32f : 0.8f;
                     foreach (var c in chimneys)
                         if (c && c.gameObject.activeInHierarchy) SpawnPuff(c);
                 }
@@ -129,7 +130,7 @@ namespace LangGio
         void SpawnPuff(Transform chimney)
         {
             var top = chimney.position + Vector3.up * (chimney.lossyScale.y * 0.5f + 0.2f);
-            if (AmbientFx.Smoke(top)) return;   // khói dạng hạt (mềm, liền mạch)
+            if (AmbientFx.Smoke(top, Settings.Season == 3 ? 1.3f : 1f)) return;   // khói dạng hạt (mềm, liền mạch)
             var g = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             var col = g.GetComponent<Collider>();
             col.enabled = false;

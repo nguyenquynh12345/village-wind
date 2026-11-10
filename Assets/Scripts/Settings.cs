@@ -19,6 +19,12 @@ namespace LangGio
         /// <summary>Mùa: 0 xuân, 1 hạ, 2 thu, 3 đông.</summary>
         public static int Season { get => Mathf.Clamp((int)Get("season", 1f), 0, 3); set { Set("season", value); Changed?.Invoke(); } }
 
+        /// <summary>Tự chuyển mùa và thời tiết theo thời gian thực.</summary>
+        public static bool SeasonAuto { get => Get("seasonAuto", 0f) > 0.5f; set { Set("seasonAuto", value ? 1f : 0f); Changed?.Invoke(); } }
+
+        /// <summary>Số phút thực cho mỗi mùa khi bật SeasonAuto (mặc định 8 phút).</summary>
+        public static float SeasonMinutes { get => Mathf.Clamp(Get("seasonMin", 8f), 1f, 30f); set { Set("seasonMin", Mathf.Clamp(value, 1f, 30f)); Changed?.Invoke(); } }
+
         /// <summary>Thời tiết: 0 nắng, 1 nhiều mây, 2 mưa.</summary>
         public static int Weather { get => Mathf.Clamp((int)Get("weather", 0f), 0, 2); set { Set("weather", value); Changed?.Invoke(); } }
 

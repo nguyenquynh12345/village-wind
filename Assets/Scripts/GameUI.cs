@@ -961,7 +961,7 @@ namespace LangGio
         {
             UiKit.Round(new Rect(0, 0, SW, SH), new Color(0.23f, 0.18f, 0.16f, 0.4f), 0);
             float w = Px(520), pd = Px(28);
-            float h = Px(PauseTab == 1 ? 600 : 520);   // tab Hình ảnh có nhiều dòng hơn
+            float h = Px(PauseTab == 1 ? 600 : PauseTab == 2 ? 560 : 520);   // tab Hình ảnh / Chơi có nhiều dòng hơn
             var r = Reg(new Rect((SW - w) * 0.5f, (SH - h) * 0.5f, w, h));
             UiKit.Panel(r, Px(26), 1f);
             float x = r.x + pd, y = r.y + pd, bw = w - pd * 2;
@@ -1024,6 +1024,11 @@ namespace LangGio
                     break;
                 default:
                     if (day) SwitchRow("Giờ tự chạy", "1 phút thật = 1 giờ trong làng", day.autoRun, "sw_auto", v => day.autoRun = v);
+                    SwitchRow("Mùa tự trôi", "Tự chuyển Xuân → Hạ → Thu → Đông & thời tiết", Settings.SeasonAuto, "sw_sauto", v => Settings.SeasonAuto = v);
+                    {
+                        float m = Mathf.Clamp(Settings.SeasonMinutes, 1f, 15f);
+                        SliderRow($"Thời gian mỗi mùa ({Mathf.RoundToInt(m)} phút)", "1..15 phút thật cho một mùa", (m - 1f) / 14f, v => Settings.SeasonMinutes = Mathf.Round(1f + v * 14f));
+                    }
                     SwitchRow("Hiện gợi ý thao tác", null, ShowHints, "sw_hint", v => ShowHints = v);
                     break;
             }

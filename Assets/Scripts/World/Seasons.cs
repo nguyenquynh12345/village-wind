@@ -9,6 +9,7 @@ namespace LangGio
     public class Seasons : MonoBehaviour
     {
         public static readonly string[] Names = { "Xuân", "Hạ", "Thu", "Đông" };
+        static readonly string[] SeasonToasts = { "🌸 Sang xuân", "☀️ Sang hạ", "🍂 Sang thu", "❄️ Sang đông" };
         public static readonly string[] WeatherNames = { "Nắng", "Nhiều mây", "Mưa" };
         public static readonly string[] WeatherIcons = { "sun", "eye", "nature" };
         public static Seasons I;
@@ -16,6 +17,11 @@ namespace LangGio
         float spring, autumn, snow, overcast, wet, rainbowT;
         bool wasRaining;
         float lastSnowApplied = -1f;
+        float seasonTimer, weatherTimer;
+        int lastSeason = -1;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => I = null;
 
         /// <summary>Độ u ám của trời (0 nắng → 1 mưa dày).</summary>
         public static float Overcast => I ? I.overcast : 0f;
@@ -29,6 +35,8 @@ namespace LangGio
         void Awake()
         {
             I = this;
+            lastSeason = Settings.Season;
+            weatherTimer = Random.Range(120f, 300f);
             Target(out spring, out autumn, out snow);
             WeatherTarget(out overcast, out wet);
             Push();
@@ -49,8 +57,47 @@ namespace LangGio
             w = s == 2 ? 1f : 0f;
         }
 
+        static int RollWeather(int season)
+        {
+            float r = Random.value;
+            return season switch
+            {
+                1 => r < 0.70f ? 0 : r < 0.85f ? 1 : 2,   // hạ: nắng nhiều
+                2 => r < 0.25f ? 0 : r < 0.80f ? 1 : 2,   // thu: nhiều mây
+                3 => r < 0.40f ? 0 : r < 0.70f ? 1 : 2,   // đông: không mưa mà tuyết (weather 2 = tuyết dày qua _LG_Snow)
+                _ => r < 0.55f ? 0 : r < 0.85f ? 1 : 2,   // xuân: ôn hoà
+            };
+        }
+
         void Update()
         {
+            if (Settings.Season != lastSeason)
+            {
+                lastSeason = Settings.Season;
+                seasonTimer = 0f;
+            }
+            if (Settings.SeasonAuto && GameUI.Screen == UiScreen.Play)
+            {
+                float dt = Time.unscaledDeltaTime;
+                seasonTimer += dt;
+                float dur = Mathf.Max(1f, Settings.SeasonMinutes) * 60f;
+                if (seasonTimer >= dur)
+                {
+                    seasonTimer = 0f;
+                    int next = (Settings.Season + 1) % 4;
+                    lastSeason = next;
+                    Settings.Season = next;
+                    GameUI.Toast(SeasonToasts[next]);
+                }
+
+                weatherTimer -= dt;
+                if (weatherTimer <= 0f)
+                {
+                    weatherTimer = Random.Range(120f, 300f);
+                    Settings.Weather = RollWeather(Settings.Season);
+                }
+            }
+
             WeatherTarget(out var oc, out var w);
             float kw = 1f - Mathf.Exp(-Time.unscaledDeltaTime * 0.8f);
             float prevO = overcast;
