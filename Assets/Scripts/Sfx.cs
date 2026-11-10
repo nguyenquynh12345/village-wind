@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace LangGio
 {
-    public enum SfxId { Pop, Place, Delete, Undo, Redo, Chime, Click, Splash, Shutter, Bird, Cricket }
+    public enum SfxId { Pop, Place, Delete, Undo, Redo, Chime, Click, Splash, Shutter, Bird, Cricket, Step }
 
     /// <summary>
     /// Âm thanh tự tổng hợp lúc chạy (không cần file âm thanh): tiếng "pốp" khi vật mọc lên, đặt / xoá,
@@ -37,6 +37,7 @@ namespace LangGio
             clips[(int)SfxId.Shutter] = Make("shutter", 0.16f, Shutter);
             clips[(int)SfxId.Bird] = Make("bird", 0.5f, Bird);
             clips[(int)SfxId.Cricket] = Make("cricket", 0.45f, Cricket);
+            clips[(int)SfxId.Step] = Make("step", 0.09f, Step);
 
             voices = new AudioSource[10];
             for (int i = 0; i < voices.Length; i++)
@@ -217,6 +218,15 @@ namespace LangGio
             float burst = (t % 0.22f) < 0.12f ? 1f : 0f;
             float pulse = Mathf.Max(0f, Mathf.Sin(TAU * 30f * t));
             return Sin(4600f, t) * pulse * burst * 0.5f;
+        }
+
+        static float stLp;
+        static float Step(float t)
+        {
+            stLp += (Noise() - stLp) * 0.25f;
+            float env = Mathf.Min(1f, t / 0.008f) * Mathf.Exp(-t * 42f);
+            float thud = Sin(Mathf.Lerp(160f, 65f, t / 0.09f), t) * Mathf.Exp(-t * 55f);
+            return (stLp * 0.65f + thud * 0.55f) * env;
         }
 
         /// <summary>Mưa: nhiễu hồng dày + tiếng giọt lách tách ngẫu nhiên, vòng lặp 5 s.</summary>

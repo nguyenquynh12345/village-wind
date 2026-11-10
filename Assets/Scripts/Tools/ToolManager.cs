@@ -66,7 +66,7 @@ namespace LangGio
 
         void Update()
         {
-            if (GameUI.Blocking || GameUI.PhotoMode) return;
+            if (GameUI.Blocking || GameUI.PhotoMode || WalkMode.Active) return;
             Interior.Tick();
 
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);

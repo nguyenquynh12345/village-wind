@@ -143,6 +143,7 @@ namespace LangGio
         void Update()
         {
             if (Screen != UiScreen.Play && PhotoMode) PhotoMode = false;
+            if (WalkMode.Active) return;
             if (PhotoMode || captureStep > 0) { UpdatePhoto(); return; }
             if (Screen == UiScreen.Play && Input.GetKeyDown(KeyCode.F1)) UiHidden = !UiHidden;
             if (Screen == UiScreen.Play && !JournalOpen && !ToolManager.IsBusy && Input.GetKeyDown(KeyCode.F)) { TogglePhoto(); return; }
@@ -171,6 +172,15 @@ namespace LangGio
             rects.Clear();
             bool play = Screen == UiScreen.Play && !JournalOpen;
             UiKit.BeginFrame(play);
+
+            if (WalkMode.Active)
+            {
+                DrawWalkHint();
+                MouseOverUI = false;
+                DrawToasts();
+                UiKit.EndFrame();
+                return;
+            }
 
             if (PhotoMode || captureStep > 0)
             {
@@ -299,10 +309,10 @@ namespace LangGio
                 }
             }
 
-            // ---- Thanh dưới: Bàn tay | Xây Thiên nhiên Trang trí | Xóa | Hoàn tác Làm lại ----
+            // ---- Thanh dưới: Bàn tay | Xây Thiên nhiên Trang trí | Xóa | Hoàn tác Làm lại | Dạo làng ----
             float btn = Px(52), gap = Px(4), pd = Px(6);
-            float dividers = 3 * Px(9);
-            float dockW = pd * 2 + btn * 7 + gap * 6 + dividers;
+            float dividers = 4 * Px(9);
+            float dockW = pd * 2 + btn * 8 + gap * 7 + dividers;
             var dock = Reg(new Rect((SW - dockW) * 0.5f, SH - m - btn - pd * 2, dockW, btn + pd * 2));
             UiKit.Panel(dock, dock.height * 0.5f);
             float x = dock.x + pd, y = dock.y + pd;
@@ -337,6 +347,10 @@ namespace LangGio
             x += btn + gap;
             GUI.enabled = History.CanRedo && !ToolManager.IsBusy;
             if (UiKit.IconButton(new Rect(x, y, btn, btn), "redo", "redo", false, "Làm lại", "Y")) History.Redo();
+            x += btn + gap;
+            GUI.enabled = !ToolManager.IsBusy;
+            UiKit.Divider(x + Px(2), y + Px(12), btn - Px(24)); x += Px(9);
+            if (UiKit.IconButton(new Rect(x, y, btn, btn), "walk", "door", WalkMode.Active, "Dạo làng", "F3")) WalkMode.Toggle();
             GUI.enabled = true;
 
             float aboveY = dock.y - Px(10);
@@ -653,6 +667,21 @@ namespace LangGio
             var r = Reg(new Rect(SW - Px(18) - Px(48), Px(18), Px(48), Px(48)));
             UiKit.Round(r, new Color(1f, 0.98f, 0.95f, 0.55f), r.width * 0.5f);
             if (UiKit.IconButton(r, "show", "eye", false, "Hiện giao diện", "F1", true)) UiHidden = false;
+        }
+
+        // ================= Dạo làng (S5) =================
+        void DrawWalkHint()
+        {
+            string hint = WalkMode.IsRidingBoat
+                ? "Đang ngồi thuyền  ·  Chuột: nhìn quanh  ·  E: lên bờ gần nhất  ·  F3 / Esc: thoát"
+                : WalkMode.CanBoardBoat
+                    ? "WASD: đi bộ  ·  Shift: chạy  ·  Chuột: nhìn quanh  ·  E: lên thuyền  ·  F3 / Esc: thoát"
+                    : "WASD: đi bộ  ·  Shift: chạy  ·  Chuột: nhìn quanh  ·  F3 / Esc: thoát";
+            var hs = UiKit.Measure(hint, 13f, true);
+            var old = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.72f);
+            UiKit.ShadowLabel(new Rect((SW - hs.x) * 0.5f - Px(10), SH - Px(44), hs.x + Px(20), hs.y), hint, 13f);
+            GUI.color = old;
         }
 
         // ================= Chụp ảnh =================

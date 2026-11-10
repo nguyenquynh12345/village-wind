@@ -31,6 +31,7 @@ namespace LangGio
             cam.farClipPlane = 600f;
             camGo.AddComponent<AudioListener>();
             camGo.AddComponent<CameraRig>();
+            camGo.AddComponent<WalkMode>();
 
             // Mặt trời
             var sun = new GameObject("Sun").AddComponent<Light>();

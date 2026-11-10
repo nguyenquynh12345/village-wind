@@ -87,5 +87,11 @@ namespace LangGio
         public const float TowerLevelDragStep = 2f;   // kéo mũi tên 2 m = 1 tầng
         public const float WallHeightDragStep = 1f;
         public const int HistoryLimit = 200;
+
+        // ---- Dạo làng (S5) ----
+        public const float WalkSpeed = 3.2f;
+        public const float RunSpeed = 6f;
+        public const float EyeHeight = 1.6f;
+        public const float WalkMaxSlope = 50f;
     }
 }
