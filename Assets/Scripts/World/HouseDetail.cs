@@ -21,6 +21,55 @@ namespace LangGio
         int WallPattern(int f) => Mat(f) switch { 0 => Palette.PatPlaster, 1 => Palette.PatWood, 2 => Palette.PatStone, _ => Palette.PatBrick };
 
         // ---------- Móng đá ----------
+        /// <summary>Xếp các hàng đá so le dọc mặt phẳng từ đầu A tới đầu B (dùng chung cho móng nhà và tường thành).</summary>
+        public static void AddStoneCourses(DetailMesh dm, Vector3 a, Vector3 b, float y0A, float y1A, float y0B, float y1B,
+                                           Vector3 nrm, float faceDist, float chMin = 0.2f, float chMax = 0.28f,
+                                           float slMin = 0.32f, float slMax = 0.62f, float depth = 0.16f)
+        {
+            var ab = b - a;
+            ab.y = 0f;
+            float len = ab.magnitude;
+            if (len < 0.15f) return;
+            var tan = ab / len;
+            float hA = y1A - y0A, hB = y1B - y0B;
+            float avgH = (hA + hB) * 0.5f;
+            if (avgH < 0.08f) return;
+
+            var baseRot = Quaternion.LookRotation(nrm, Vector3.up);
+            float f = 0f;
+            int course = 0;
+            while (f < avgH - 0.02f)
+            {
+                float ch = Mathf.Min(dm.Range(chMin, chMax), avgH - f);
+                float fMid = (f + ch * 0.5f) / avgH;
+                float u = course % 2 == 0 ? 0f : dm.Range(0.1f, 0.25f);
+                while (u < len - 0.05f)
+                {
+                    float sl = Mathf.Min(dm.Range(slMin, slMax), len - u);
+                    if (sl < 0.1f) break;
+                    float t = (u + sl * 0.5f) / len;
+                    float yBot = Mathf.Lerp(y0A, y0B, t);
+                    float yTop = Mathf.Lerp(y1A, y1B, t);
+                    float localH = yTop - yBot;
+                    if (localH > 0.08f)
+                    {
+                        float cy = Mathf.Lerp(yBot, yTop, fMid);
+                        float stoneH = ch * (localH / avgH);
+                        float roll = dm.Rand();
+                        var col = roll < 0.06f ? dm.Vary(Moss, 0.08f)
+                                : roll < 0.3f  ? dm.Vary(FoundationDark, 0.06f)
+                                               : dm.Vary(FoundationStone, 0.08f);
+                        var center = Vector3.Lerp(a, b, t) + nrm * (faceDist + dm.Range(0f, 0.035f)) + Vector3.up * cy;
+                        var rot = baseRot * Quaternion.Euler(dm.Range(-2f, 2f), dm.Range(-3f, 3f), dm.Range(-2.5f, 2.5f));
+                        dm.Box(center, new Vector3(sl - 0.035f, Mathf.Max(0.05f, stoneH - 0.03f), depth), rot, col, skipBottom: true, skipBack: true);
+                    }
+                    u += sl;
+                }
+                f += ch;
+                course++;
+            }
+        }
+
         void BuildFoundationDetail(float w, float l, float plinthBottom)
         {
             var dm = detail;
@@ -31,25 +80,7 @@ namespace LangGio
                 var tan = SideTangent(s);
                 float face = (s < 2 ? w : l) * 0.5f + 0.15f;
                 float len = (s < 2 ? l : w) + 0.3f;
-                float y = bottom;
-                int course = 0;
-                while (y < -0.02f)
-                {
-                    float ch = Mathf.Min(dm.Range(0.2f, 0.28f), -y);
-                    float a = -len * 0.5f + (course % 2 == 0 ? 0f : dm.Range(0.1f, 0.25f));
-                    while (a < len * 0.5f - 0.05f)
-                    {
-                        float sl = Mathf.Min(dm.Range(0.32f, 0.62f), len * 0.5f - a);
-                        float roll = dm.Rand();
-                        var col = roll < 0.06f ? dm.Vary(Moss, 0.08f) : roll < 0.3f ? dm.Vary(FoundationDark, 0.06f) : dm.Vary(FoundationStone, 0.08f);
-                        var center = nrm * (face + dm.Range(0.0f, 0.035f)) + tan * (a + sl * 0.5f) + Vector3.up * (y + ch * 0.5f);
-                        var rot = Quaternion.LookRotation(nrm) * Quaternion.Euler(dm.Range(-2f, 2f), dm.Range(-3f, 3f), dm.Range(-2.5f, 2.5f));
-                        dm.Box(center, new Vector3(sl - 0.035f, ch - 0.03f, 0.16f), rot, col, skipBack: true);
-                        a += sl;
-                    }
-                    y += ch;
-                    course++;
-                }
+                AddStoneCourses(dm, -tan * (len * 0.5f), tan * (len * 0.5f), bottom, 0f, bottom, 0f, nrm, face);
                 // gờ đá trên cùng, nơi tường bắt đầu
                 dm.Box(nrm * (face - 0.02f) + Vector3.up * 0.01f, s < 2 ? new Vector3(0.24f, 0.07f, len + 0.12f) : new Vector3(len + 0.12f, 0.07f, 0.24f),
                        Quaternion.identity, dm.Vary(FoundationStone, 0.03f), skipBottom: true);

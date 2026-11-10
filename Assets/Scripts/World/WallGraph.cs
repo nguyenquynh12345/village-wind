@@ -593,10 +593,8 @@ namespace LangGio
         {
             var body = go.transform.Find("Body");
             if (body) PopIn.Add(body.gameObject, 0f, true, 0.3f);
-            int k = 0;
-            foreach (Transform c in go.transform)
-                if (c.name == "Merlon" || c.name == "Stake")
-                    PopIn.Add(c.gameObject, 0.25f + 0.03f * k++, false, 0.3f);
+            var merlons = go.transform.Find("Merlons");
+            if (merlons) PopIn.Add(merlons.gameObject, 0.04f, true, 0.3f);
         }
 
         static string F(float v) => v.ToString("F2", CultureInfo.InvariantCulture);
@@ -687,6 +685,31 @@ namespace LangGio
             Prim(PrimitiveType.Cylinder, t, new Vector3(0, bottom * 0.5f + 0.25f, 0),
                  new Vector3(r * 2f + 0.28f, (0.5f - bottom) * 0.5f, r * 2f + 0.28f), Palette.StoneDark, name: "Footing").WithPattern(Palette.StoneDark, Palette.PatStone);
             var tdm = new DetailMesh(n.id * 977 + 13);
+            // Đá góc ở tháp (8 sống đá xếp so le dài-ngắn dọc thân tháp, né cửa sổ)
+            int quoins = Mathf.FloorToInt((hgt - 0.55f) / 0.36f);
+            for (int ribs = 0; ribs < 8; ribs++)
+            {
+                float a = ribs * Mathf.PI / 4f;
+                var dir = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a));
+                var qRot = Quaternion.LookRotation(dir);
+                for (int k = 0; k < quoins; k++)
+                {
+                    float y = 0.32f + k * 0.36f;
+                    bool nearWin = false;
+                    for (int wf = 0; ; wf++)
+                    {
+                        float wy = 1.4f + wf * 2f;
+                        if (wy > hgt - 0.9f) break;
+                        int wRib = (wf + 1) % 8;
+                        if (wRib == ribs && Mathf.Abs(y - (wy + 0.05f)) < 0.55f) { nearWin = true; break; }
+                    }
+                    if (nearWin) continue;
+                    bool wide = (k + ribs) % 2 == 0;
+                    float w = wide ? 0.44f : 0.28f;
+                    var col = tdm.Vary(wide ? Palette.StoneLight : Palette.StoneDark, 0.06f);
+                    tdm.Box(dir * (r + 0.025f) + Vector3.up * y, new Vector3(w, 0.3f, 0.09f), qRot, col, skipBottom: true, skipBack: true);
+                }
+            }
             int corbels = Mathf.Max(10, Mathf.RoundToInt(2f * Mathf.PI * r / 0.42f));
             for (int k = 0; k < corbels; k++)
             {
@@ -906,14 +929,16 @@ namespace LangGio
                         mdm.Box(new Vector3(p.x, ty + 0.07f + mh + 0.04f, p.z) - origin, new Vector3(thick + 0.14f, 0.08f, 0.68f), mq, mdm.Vary(Palette.StoneDark, 0.05f), skipBottom: true);
                     }
                     else if (!nearTower && style == 2)
-                        Prim(PrimitiveType.Cube, go.transform, new Vector3(p.x, ty + 0.1f, p.z) - origin,
-                             new Vector3(0.28f, 0.28f, 0.28f), Palette.Wood,
-                             localRot: Quaternion.LookRotation(dir) * Quaternion.Euler(0, 0, 45f), name: "Stake");
+                    {
+                        var sq = Quaternion.LookRotation(dir) * Quaternion.Euler(0, 0, 45f);
+                        mdm.Box(new Vector3(p.x, ty + 0.1f, p.z) - origin, new Vector3(0.28f, 0.28f, 0.28f), sq, mdm.Vary(Palette.Wood, 0.06f), skipBottom: true);
+                    }
                     next += spacing;
                 }
                 sAcc += len;
             }
-            mdm.Build("Merlons", go.transform, true, Palette.VertexColorMat(Palette.PatStone));
+            WallMesh.AddSurfaceDetail(mdm, path, closed, g, top, thick, style, origin);
+            mdm.Build("Merlons", go.transform, true, Palette.VertexColorMat(style == 2 ? Palette.PatWood : Palette.PatStone));
 
             ApplyPartTint(part);
         }
