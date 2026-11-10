@@ -30,6 +30,7 @@ namespace LangGio
         public const int PatNone = 0, PatPlaster = 1, PatWood = 2, PatStone = 3, PatBrick = 4, PatGrass = 5, PatDirt = 6, PatCobble = 7;
 
         static Material waterMat;
+        static Material riverWaterMat;
 
         /// <summary>Mặt nước ao (shader LangGio/Water; không có thì dùng màu trơn).</summary>
         public static Material WaterMat(Color fallback)
@@ -37,7 +38,18 @@ namespace LangGio
             if (waterMat) return waterMat;
             var sh = Shader.Find("LangGio/Water");
             waterMat = sh ? new Material(sh) { name = "Water" } : new Material(Mat(fallback));
+            if (waterMat.HasProperty("_FlowSpeed")) waterMat.SetFloat("_FlowSpeed", 0f);
             return waterMat;
+        }
+
+        /// <summary>Mặt nước sông chảy xuôi dòng (_FlowSpeed = 0.6).</summary>
+        public static Material RiverWaterMat(Color fallback)
+        {
+            if (riverWaterMat) return riverWaterMat;
+            var sh = Shader.Find("LangGio/Water");
+            riverWaterMat = sh ? new Material(sh) { name = "RiverWater" } : new Material(Mat(fallback));
+            if (riverWaterMat.HasProperty("_FlowSpeed")) riverWaterMat.SetFloat("_FlowSpeed", 0.6f);
+            return riverWaterMat;
         }
         static Shader lit;
         static Material vertexColorMat;
@@ -50,6 +62,7 @@ namespace LangGio
             vertexColorMat = null;
             vcPattern.Clear();
             waterMat = null;
+            riverWaterMat = null;
             windowMat = null;
             lanternMat = null;
         }

@@ -16,6 +16,7 @@ namespace LangGio
             bool show = !DayCycle.IsEvening && Settings.Season != 3 && Seasons.Rain < 0.3f;   // bướm trốn khi tối, mùa đông, trời mưa
             if (body) body.gameObject.SetActive(show);
             if (!show) return;
+            if (!HeightField.I) return;
             t += Time.deltaTime;
             float a = t * 0.9f + phase;
             var off = new Vector3(Mathf.Sin(a) * 1.6f + Mathf.Sin(a * 2.3f) * 0.5f, 0, Mathf.Cos(a * 0.8f) * 1.4f);

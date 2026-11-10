@@ -13,6 +13,7 @@ namespace LangGio
             { "WallGraph", typeof(WallGraph) },
             { "House", typeof(HouseEntity) },
             { "Pond", typeof(PondEntity) },
+            { "River", typeof(RiverEntity) },
             { "Tree", typeof(TreeEntity) },
             { "Path", typeof(PathEntity) },
             { "Blocks", typeof(BlockWorld) },
@@ -57,6 +58,19 @@ namespace LangGio
                 e.PlayPop(popDelay);
                 if (popDelay < 0.3f) AmbientFx.DustAround(go);   // bụi bung ra khi đặt
             }
+            return e;
+        }
+
+        /// <summary>Tạo vật tạm (Id = 0, không đăng ký vào map) để xem trước hoặc dịch chuyển tham số.</summary>
+        public static Entity CreateTemp(string type, string json)
+        {
+            if (!types.TryGetValue(type, out var t)) return null;
+            if (!root) root = new GameObject("World").transform;
+            var go = new GameObject(type + "_Temp");
+            go.transform.SetParent(root, false);
+            var e = (Entity)go.AddComponent(t);
+            e.Id = 0;
+            e.Restore(json);
             return e;
         }
 

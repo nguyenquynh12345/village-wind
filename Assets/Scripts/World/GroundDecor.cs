@@ -288,6 +288,12 @@ namespace LangGio
                 Scan(p.Area, q => p.Covers(q, 0.5f));
             }
 
+            foreach (var river in EntityManager.OfType<RiverEntity>())
+            {
+                var rv = river;
+                Scan(rv.Area, q => rv.Covers(q, 0.6f));
+            }
+
             if (BlockWorld.I)
             {
                 var hf = HeightField.I;

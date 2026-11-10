@@ -177,6 +177,19 @@ namespace LangGio
                         }
             }
 
+            foreach (var river in EntityManager.OfType<RiverEntity>())
+            {
+                if (!river.Area.Overlaps(Rect.MinMaxRect(
+                        p.x - 20f, p.z - 20f, p.x + 20f, p.z + 20f))) continue;
+                foreach (var box in boxes)
+                    for (int i = 0; i <= 8; i++)
+                        for (int j = 0; j <= 8; j++)
+                        {
+                            var q = box.c + box.ax * (box.hx * (i / 4f - 1f)) + box.az * (box.hz * (j / 4f - 1f));
+                            if (river.Covers(q, 0.2f)) { reason = "Chồng lên sông"; return false; }
+                        }
+            }
+
             reason = null;
             return true;
         }

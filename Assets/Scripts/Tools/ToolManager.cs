@@ -125,6 +125,18 @@ namespace LangGio
                 {
                     if (AutoSaver.I) AutoSaver.I.SaveNow(true);
                 }
+                else if (Input.GetKeyDown(KeyCode.C))
+                {
+                    Hand.CopySelection();
+                }
+                else if (Input.GetKeyDown(KeyCode.V))
+                {
+                    if (Clipboard.HasData)
+                    {
+                        if (Current != Hand) Set(Hand);
+                        Hand.StartPaste();
+                    }
+                }
 
                 if (Input.GetKeyDown(KeyCode.Z))
                 {

@@ -5,31 +5,47 @@ using UnityEngine.Rendering;
 namespace LangGio
 {
     /// <summary>
-    /// Ao: kéo vẽ 1 vòng → thả ra thành ao. Shift + kéo: cọ thêm nước. Alt + kéo: cọ bớt nước.
-    /// Ao mới chạm ao cũ → tự gộp. 1 / 2: ao nông / sâu. [ / ]: cỡ cọ.
+    /// Ao / Sông (O):
+    /// - 1 Ao: kéo vẽ 1 vòng → tạo ao; Shift + kéo: cọ thêm nước; Alt + kéo: cọ bớt nước.
+    /// - 2 Sông: kéo vẽ đường tâm dòng chảy (tự chảy từ cao xuống thấp, nối thông khi gần ao).
+    /// [ / ]: cỡ cọ (Ao) hoặc bề rộng 1.5..8 m (Sông).
     /// </summary>
     public class PondTool : Tool
     {
-        enum Mode { None, Lasso, Add, Remove }
+        enum Mode { None, Lasso, Add, Remove, River }
 
         static readonly Color AddColor = new Color(0.5f, 0.75f, 0.85f, 0.55f);
         static readonly Color RemoveColor = new Color(0.95f, 0.35f, 0.3f, 0.5f);
 
         Mode mode;
         public static bool Deep;
+        public static bool RiverMode;
+        public static float RiverWidth = 3f;
         float radius = GameConfig.PondBrushDefault;
         readonly List<Vector3> raw = new();
+        Vector3 cursor;
         PondMask stroke;
         LineRenderer line;
         readonly GroundRing ring = new();
         readonly MaskPreview preview = new();
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics()
+        {
+            Deep = false;
+            RiverMode = false;
+            RiverWidth = 3f;
+        }
+
         public override string Name => "Ao";
         public override string Key => "O";
         public override bool Busy => mode != Mode.None;
-        public override string Hint =>
-            "Kéo vẽ 1 vòng: tạo ao  ·  Shift + kéo: cọ thêm nước  ·  Alt + kéo: cọ bớt nước  ·  1 Nông · 2 Sâu  ·  [ / ]: cỡ cọ";
-        public override string Status => $"Ao {(Deep ? "sâu" : "nông")} · cọ {radius:0.#} m";
+        public override string Hint => RiverMode
+            ? "Kéo chuột: vẽ sông (chảy từ cao xuống thấp, gần ao ≤ 1 m tự nối)  ·  Shift: thẳng  ·  1 Ao · 2 Sông  ·  [ / ]: bề rộng"
+            : "Kéo vẽ 1 vòng: tạo ao  ·  Shift + kéo: cọ thêm nước  ·  Alt + kéo: cọ bớt nước  ·  1 Ao · 2 Sông  ·  [ / ]: cỡ cọ";
+        public override string Status => RiverMode
+            ? $"Sông {(Deep ? "sâu" : "nông")} · rộng {RiverWidth:0.#} m" + (mode == Mode.River ? $" · {PreviewLength():0.0} m" : "")
+            : $"Ao {(Deep ? "sâu" : "nông")} · cọ {radius:0.#} m";
 
         public override void Exit() => Cancel();
 
@@ -40,6 +56,8 @@ namespace LangGio
             line = go.AddComponent<LineRenderer>();
             line.widthMultiplier = 0.3f;
             line.loop = true;
+            line.numCapVertices = 4;
+            line.numCornerVertices = 4;
             line.material = new Material(Shader.Find("Sprites/Default"));
             line.startColor = line.endColor = Palette.Hex("#7FB7C9");
             line.shadowCastingMode = ShadowCastingMode.Off;
@@ -49,22 +67,37 @@ namespace LangGio
         public override void Update(ToolContext c)
         {
             EnsureLine();
-            if (Input.GetKeyDown(KeyCode.Alpha1)) Deep = false;
-            if (Input.GetKeyDown(KeyCode.Alpha2)) Deep = true;
-            if (Input.GetKeyDown(KeyCode.LeftBracket)) radius = Mathf.Max(1f, radius - 0.5f);
-            if (Input.GetKeyDown(KeyCode.RightBracket)) radius = Mathf.Min(8f, radius + 0.5f);
+            if (Input.GetKeyDown(KeyCode.Alpha1)) { if (Busy) Cancel(); RiverMode = false; }
+            if (Input.GetKeyDown(KeyCode.Alpha2)) { if (Busy) Cancel(); RiverMode = true; }
+            if (Input.GetKeyDown(KeyCode.LeftBracket))
+            {
+                if (RiverMode) RiverWidth = Mathf.Max(1.5f, RiverWidth - 0.5f);
+                else radius = Mathf.Max(1f, radius - 0.5f);
+            }
+            if (Input.GetKeyDown(KeyCode.RightBracket))
+            {
+                if (RiverMode) RiverWidth = Mathf.Min(8f, RiverWidth + 0.5f);
+                else radius = Mathf.Min(8f, radius + 0.5f);
+            }
 
             bool has = c.Ground(out var p);
             var p2 = new Vector2(p.x, p.z);
 
-            if (has && !c.overUI && (c.shift || c.alt || mode == Mode.Add || mode == Mode.Remove))
+            if (!RiverMode && has && !c.overUI && (c.shift || c.alt || mode == Mode.Add || mode == Mode.Remove))
                 ring.Show(p, radius, (c.alt || mode == Mode.Remove) ? RemoveColor : AddColor);
             else ring.Hide();
 
             if (mode == Mode.None)
             {
                 if (!Input.GetMouseButtonDown(0) || c.overUI || !has || !WallTool.InBuildArea(p)) return;
-                if (c.alt) { mode = Mode.Remove; stroke = PondMask.Stamp(null, p2, radius, true); }
+                if (RiverMode)
+                {
+                    mode = Mode.River;
+                    raw.Clear();
+                    raw.Add(new Vector3(p.x, 0, p.z));
+                    cursor = raw[0];
+                }
+                else if (c.alt) { mode = Mode.Remove; stroke = PondMask.Stamp(null, p2, radius, true); }
                 else if (c.shift) { mode = Mode.Add; stroke = PondMask.Stamp(null, p2, radius, true); }
                 else { mode = Mode.Lasso; raw.Clear(); raw.Add(new Vector3(p.x, 0, p.z)); }
                 return;
@@ -74,10 +107,25 @@ namespace LangGio
 
             if (has && WallTool.InBuildArea(p))
             {
-                if (mode == Mode.Lasso)
+                if (mode == Mode.River)
+                {
+                    p.y = 0;
+                    if (c.shift) { if (raw.Count > 1) raw.RemoveRange(1, raw.Count - 1); }
+                    else if (PathUtil.Flat(p - raw[raw.Count - 1]).magnitude > GameConfig.SampleDist) raw.Add(p);
+                    cursor = p;
+                    var hf = HeightField.I;
+                    line.loop = false;
+                    line.widthMultiplier = RiverWidth;
+                    line.positionCount = raw.Count + 1;
+                    for (int i = 0; i < raw.Count; i++) line.SetPosition(i, hf.OnGround(raw[i]) + Vector3.up * 0.15f);
+                    line.SetPosition(raw.Count, hf.OnGround(cursor) + Vector3.up * 0.15f);
+                }
+                else if (mode == Mode.Lasso)
                 {
                     if (PathUtil.Flat(new Vector3(p.x, 0, p.z) - raw[raw.Count - 1]).magnitude > 0.4f) raw.Add(new Vector3(p.x, 0, p.z));
                     var hf = HeightField.I;
+                    line.loop = true;
+                    line.widthMultiplier = 0.3f;
                     line.positionCount = raw.Count;
                     for (int i = 0; i < raw.Count; i++) line.SetPosition(i, hf.OnGround(raw[i]) + Vector3.up * 0.15f);
                 }
@@ -91,9 +139,36 @@ namespace LangGio
             if (Input.GetMouseButtonUp(0) || !Input.GetMouseButton(0)) Finish();
         }
 
+        float PreviewLength() =>
+            raw.Count == 0 ? 0f : PathUtil.Length(raw) + PathUtil.Flat(cursor - raw[raw.Count - 1]).magnitude;
+
         void Finish()
         {
             var m = mode;
+            if (m == Mode.River)
+            {
+                var pts = new List<Vector3>(raw);
+                if (pts.Count > 0 && PathUtil.Flat(cursor - pts[pts.Count - 1]).magnitude > 0.1f) pts.Add(cursor);
+                Cancel();
+                if (pts.Count < 2 || PathUtil.Length(pts) < 2f) return;
+
+                var smooth = PathUtil.Resample(PathUtil.CatmullRom(pts, 4), 0.8f);
+                var rp = new RiverParams { width = RiverWidth, deep = Deep, seed = Random.Range(0, 100000) };
+                foreach (var q in smooth) rp.pts.Add(new Vector2(q.x, q.z));
+
+                // Không đào sông xuyên dưới nền nhà
+                float halfW = RiverWidth * 0.5f + 0.3f;
+                foreach (var h in EntityManager.OfType<HouseEntity>())
+                    foreach (var q in rp.pts)
+                        if (h.ContainsPoint(q, halfW))
+                        {
+                            GameUI.Toast("Không đào sông dưới nền nhà");
+                            return;
+                        }
+
+                History.Execute(new CreateEntityCommand("River", JsonUtility.ToJson(rp), 0f));
+                return;
+            }
             PondMask shape = null;
             if (m == Mode.Lasso && raw.Count >= 3)
             {

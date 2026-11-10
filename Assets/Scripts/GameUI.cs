@@ -416,8 +416,16 @@ namespace LangGio
                     for (int i = 0; i < TreeEntity.TypeNames.Length; i++) { int k = i; items.Add((TreeEntity.TypeNames[i], i == 0 ? "tree" : null, TreeTool.Type == i, () => TreeTool.Type = k)); }
                     break;
                 case "O":
-                    items.Add(("Nông", "pond", !PondTool.Deep, () => PondTool.Deep = false));
+                    items.Add(("Ao", "pond", !PondTool.RiverMode, () => PondTool.RiverMode = false));
+                    items.Add(("Sông", null, PondTool.RiverMode, () => PondTool.RiverMode = true));
+                    items.Add(("Nông", null, !PondTool.Deep, () => PondTool.Deep = false));
                     items.Add(("Sâu", null, PondTool.Deep, () => PondTool.Deep = true));
+                    if (PondTool.RiverMode)
+                    {
+                        stepLabel = "Rộng"; stepValue = $"{PondTool.RiverWidth:0.#} m";
+                        stepMinus = () => PondTool.RiverWidth = Mathf.Max(1.5f, PondTool.RiverWidth - 0.5f);
+                        stepPlus = () => PondTool.RiverWidth = Mathf.Min(8f, PondTool.RiverWidth + 0.5f);
+                    }
                     break;
                 case "H":
                     for (int i = 0; i < PathEntity.StyleNames.Length; i++) { int k = i; items.Add((PathEntity.StyleNames[i], i == 0 ? "path" : null, PathTool.Style == i, () => PathTool.Style = k)); }
@@ -562,11 +570,18 @@ namespace LangGio
         {
             if (tm.Current != tm.Hand) return;
             var hand = tm.Hand;
+            if (hand.IsBoxSelecting && Event.current.type == EventType.Repaint)
+            {
+                var br = hand.BoxGuiRect;
+                UiKit.Round(br, new Color(0.45f, 0.7f, 1f, 0.12f), Px(4));
+                UiKit.Outline(br, new Color(0.45f, 0.7f, 1f, 0.85f), Px(4), Px(2));
+            }
             var sel = hand.Selected;
+            int multi = hand.MultiCount;
             string detail = hand.DetailLabel;
-            if (!sel && detail == null) return;
+            if (!sel && multi == 0 && detail == null) return;
 
-            string title = sel ? sel.Describe : detail;
+            string title = multi > 0 ? $"Đã chọn {multi} vật · Kéo để dời, R xoay, Ctrl+C chép" : sel ? sel.Describe : detail;
             // tách "Tên · chi tiết" thành 2 dòng cho gọn
             string head = title, sub = null;
             int cut = title.IndexOf(" · ");
@@ -583,7 +598,7 @@ namespace LangGio
             var cam = Camera.main;
             Vector2 anchor = new Vector2(SW * 0.5f, Px(90) + h);
             bool floating = false;
-            if (sel && cam && !(sel is WallGraph) && !(sel is BlockWorld) && !(sel is IvyLayer))
+            if (sel && multi == 0 && cam && !(sel is WallGraph) && !(sel is BlockWorld) && !(sel is IvyLayer))
             {
                 var rs = sel.GetComponentsInChildren<Renderer>();
                 if (rs.Length > 0)
@@ -612,16 +627,16 @@ namespace LangGio
             if (sub != null)
                 UiKit.Label(new Rect(r.x + pd + Px(4), r.y + pd + Px(22), subW + 2, subH), sub, 12f, UiKit.InkSoft, false, TextAnchor.UpperLeft, true);
             float x = r.x + pd, y = r.yMax - pd - b;
-            if (sel)
+            if (sel || multi > 0)
             {
-                GUI.enabled = sel.CanRotate;
+                GUI.enabled = multi > 0 || sel.CanRotate;
                 if (UiKit.IconButton(new Rect(x, y, b, b), "s_rot", "rotate", false, "Xoay", "R")) hand.ActionRotate();
                 x += b;
                 GUI.enabled = hand.SelectedCanDuplicate;
                 if (UiKit.IconButton(new Rect(x, y, b, b), "s_dup", "copy", false, "Nhân bản", "Ctrl D")) hand.ActionDuplicate();
                 x += b;
-                GUI.enabled = sel is HouseEntity;
-                bool inside = sel is HouseEntity hh && Interior.IsViewing(hh.Id);
+                GUI.enabled = multi == 0 && sel is HouseEntity;
+                bool inside = multi == 0 && sel is HouseEntity hh && Interior.IsViewing(hh.Id);
                 if (UiKit.IconButton(new Rect(x, y, b, b), "s_in", "eye", inside, inside ? "Ra ngoài" : "Xem trong nhà", "I") && sel is HouseEntity he)
                 {
                     if (Interior.IsViewing(he.Id)) Interior.Exit(); else Interior.Enter(he);
@@ -629,7 +644,7 @@ namespace LangGio
                 x += b;
                 GUI.enabled = true;
             }
-            if (UiKit.IconButton(new Rect(x, y, b, b), "s_del", "trash", false, sel ? "Xoá" : "Tắt chi tiết này", "Del")) hand.ActionDelete();
+            if (UiKit.IconButton(new Rect(x, y, b, b), "s_del", "trash", false, sel || multi > 0 ? "Xoá" : "Tắt chi tiết này", "Del")) hand.ActionDelete();
         }
 
         // ================= Ẩn giao diện =================

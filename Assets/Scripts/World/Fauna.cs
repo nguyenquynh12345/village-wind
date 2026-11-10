@@ -44,6 +44,8 @@ namespace LangGio
                 if (h.ContainsPoint(p, 0.5f)) return false;
             foreach (var pond in EntityManager.OfType<PondEntity>())
                 if (pond.Mask != null && pond.Mask.ContainsWorld(p.x, p.y)) return false;
+            foreach (var river in EntityManager.OfType<RiverEntity>())
+                if (river.Covers(p, 0.3f)) return false;
             if (BlockWorld.I && BlockWorld.I.CoversGround(p, 0.3f)) return false;
             var gr = WallGraph.I;
             if (gr && gr.NearestSeg(p, 0.8f, out _, out _)) return false;

@@ -203,7 +203,7 @@ namespace LangGio
             return Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fz);
         }
 
-        /// <summary>Tính lại phần đất bị các ao đào trong vùng r (thế giới), rồi dựng lại mesh.</summary>
+        /// <summary>Tính lại phần đất bị các ao và sông đào trong vùng r (thế giới), rồi dựng lại mesh.</summary>
         public void RecomputeCarve(Rect r)
         {
             int x0 = Mathf.Clamp(Mathf.FloorToInt((r.xMin - origin) / C), 0, n - 1);
@@ -215,11 +215,16 @@ namespace LangGio
             foreach (var p in EntityManager.OfType<PondEntity>())
                 if (p.WorldRect.Overlaps(r)) ponds.Add(p);
 
+            var rivers = new List<RiverEntity>();
+            foreach (var rv in EntityManager.OfType<RiverEntity>())
+                if (rv.Area.Overlaps(r)) rivers.Add(rv);
+
             for (int z = z0; z <= z1; z++)
                 for (int x = x0; x <= x1; x++)
                 {
                     float wx = origin + x * C, wz = origin + z * C, c = 0f;
                     foreach (var p in ponds) c = Mathf.Max(c, p.CarveAt(wx, wz));
+                    foreach (var rv in rivers) c = Mathf.Max(c, rv.CarveAt(wx, wz));
                     carve[z * n + x] = c;
                 }
 

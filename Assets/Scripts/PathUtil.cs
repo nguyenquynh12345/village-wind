@@ -72,6 +72,34 @@ namespace LangGio
             return cur;
         }
 
+        /// <summary>Làm mượt Catmull-Rom đi qua các điểm điều khiển, giữ nguyên điểm đầu và cuối.</summary>
+        public static List<Vector3> CatmullRom(List<Vector3> p, int subdiv = 4)
+        {
+            if (p == null || p.Count < 3 || subdiv < 2) return p != null ? new List<Vector3>(p) : new List<Vector3>();
+            var r = new List<Vector3>((p.Count - 1) * subdiv + 1);
+            for (int i = 0; i < p.Count - 1; i++)
+            {
+                Vector3 p0 = i == 0 ? p[0] : p[i - 1];
+                Vector3 p1 = p[i];
+                Vector3 p2 = p[i + 1];
+                Vector3 p3 = i + 2 < p.Count ? p[i + 2] : p[p.Count - 1];
+                for (int s = 0; s < subdiv; s++)
+                {
+                    float t = (float)s / subdiv;
+                    float t2 = t * t, t3 = t2 * t;
+                    Vector3 pt = 0.5f * (
+                        (2f * p1) +
+                        (-p0 + p2) * t +
+                        (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 +
+                        (-p0 + 3f * p1 - 3f * p2 + p3) * t3
+                    );
+                    r.Add(pt);
+                }
+            }
+            r.Add(p[p.Count - 1]);
+            return r;
+        }
+
         /// <summary>Chia lại đường thành các đoạn dài đều nhau (~step mét).</summary>
         public static List<Vector3> Resample(List<Vector3> p, float step)
         {

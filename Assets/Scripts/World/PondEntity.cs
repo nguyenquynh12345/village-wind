@@ -68,9 +68,12 @@ namespace LangGio
             var area = hasLast ? Union(lastRect, r) : r;
             lastRect = r;
             hasLast = true;
-            HeightField.I.RecomputeCarve(area);
-            // Đang kéo tay nắm: chỉ cập nhật phần nhẹ; thả chuột mới cập nhật hết (nhà, tường, cây)
-            EntityManager.TerrainChanged(area, editing, this);
+            if (Id != 0)
+            {
+                HeightField.I.RecomputeCarve(area);
+                // Đang kéo tay nắm: chỉ cập nhật phần nhẹ; thả chuột mới cập nhật hết (nhà, tường, cây)
+                EntityManager.TerrainChanged(area, editing, this);
+            }
             BuildVisual();
         }
 

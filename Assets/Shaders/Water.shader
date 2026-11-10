@@ -8,6 +8,7 @@ Shader "LangGio/Water"
         _Deep ("Deep", Color) = (0.15, 0.36, 0.47, 1)
         _Foam ("Foam", Color) = (1, 1, 1, 1)
         _DepthRange ("Depth Range", Float) = 0.7
+        _FlowSpeed ("Flow Speed", Float) = 0
     }
 
     SubShader
@@ -39,6 +40,7 @@ Shader "LangGio/Water"
                 half4 _Deep;
                 half4 _Foam;
                 half _DepthRange;
+                half _FlowSpeed;
             CBUFFER_END
 
             half4 _LG_SkyColor;   // đặt toàn cục từ DayCycle
@@ -48,6 +50,7 @@ Shader "LangGio/Water"
             struct Attributes
             {
                 float4 positionOS : POSITION;
+                float2 uv : TEXCOORD0;
             };
 
             struct Varyings
@@ -55,6 +58,7 @@ Shader "LangGio/Water"
                 float4 positionCS : SV_POSITION;
                 float3 positionWS : TEXCOORD0;
                 half fog : TEXCOORD1;
+                float2 uv : TEXCOORD2;
             };
 
             Varyings vert(Attributes input)
@@ -64,6 +68,7 @@ Shader "LangGio/Water"
                 o.positionCS = p.positionCS;
                 o.positionWS = p.positionWS;
                 o.fog = ComputeFogFactor(p.positionCS.z);
+                o.uv = input.uv;
                 return o;
             }
 
@@ -94,7 +99,7 @@ Shader "LangGio/Water"
                 float depth = max(0.0, sceneEye - surfEye);
 
                 float t = _Time.y;
-                float2 uv = i.positionWS.xz;
+                float2 uv = _FlowSpeed > 0.001 ? (i.uv - float2(0.0, t * _FlowSpeed * 2.2)) : i.positionWS.xz;
                 const float e = 0.08;
                 float h0 = Waves(uv, t);
                 float hx = Waves(uv + float2(e, 0), t);

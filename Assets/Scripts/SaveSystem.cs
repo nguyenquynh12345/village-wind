@@ -37,7 +37,7 @@ namespace LangGio
             public Vector3 target;
         }
 
-        static readonly string[] LoadOrder = { "WallGraph", "Blocks", "Pond", "House", "Path", "Tree", "Prop", "Ivy" };
+        static readonly string[] LoadOrder = { "WallGraph", "Blocks", "Pond", "River", "House", "Path", "Tree", "Prop", "Ivy" };
         static string cachedInfo;
         static string currentName = "Làng của bạn";
         static readonly List<SlotInfo> cachedSlots = new();

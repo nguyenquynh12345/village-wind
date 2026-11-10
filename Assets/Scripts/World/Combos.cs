@@ -138,6 +138,7 @@ namespace LangGio
             var houses = new List<HouseEntity>(EntityManager.OfType<HouseEntity>());
             var paths = new List<PathEntity>(EntityManager.OfType<PathEntity>());
             var ponds = new List<PondEntity>(EntityManager.OfType<PondEntity>());
+            var rivers = new List<RiverEntity>(EntityManager.OfType<RiverEntity>());
             var trees = new List<TreeEntity>();
             foreach (var t in EntityManager.OfType<TreeEntity>()) if (!t.Hidden) trees.Add(t);
             var gr = WallGraph.I;
@@ -188,14 +189,13 @@ namespace LangGio
                 bool open = false, show = false;
                 for (int i = 0; i < pts.Count; i++)
                 {
-                    var pond = PondAt(ponds, pts[i]);
-                    if (pond == null) { if (open) { End(); open = false; } continue; }
+                    if (!WaterAt(ponds, rivers, pts[i], out float waterLevel)) { if (open) { End(); open = false; } continue; }
                     hit[1] = true;
                     if (!open) { open = true; show = Begin(1, pts[i]); }
                     if (!show) continue;
                     var dir = (i < pts.Count - 1 ? pts[i + 1] - pts[i] : pts[i] - pts[i - 1]).normalized;
                     var rot = Quaternion.LookRotation(Geo.X0Z(dir));
-                    float y = pond.WaterLevel + 0.3f;
+                    float y = waterLevel + 0.3f;
                     Box(new Vector3(pts[i].x, y, pts[i].y), new Vector3(path.Width + 0.3f, 0.12f, 0.4f), Palette.Wood, rot);
                     if (i % 3 == 0)
                     {
@@ -218,14 +218,13 @@ namespace LangGio
                 bool open = false, show = false;
                 for (int i = 0; i < pts.Count; i += 3)
                 {
-                    var pond = PondAt(ponds, pts[i]);
-                    if (pond == null) { if (open) { End(); open = false; } continue; }
+                    if (!WaterAt(ponds, rivers, pts[i], out float waterLevel)) { if (open) { End(); open = false; } continue; }
                     hit[2] = true;
                     if (!open) { open = true; show = Begin(2, pts[i]); }
                     if (!show) continue;
                     var dir = (i < pts.Count - 1 ? pts[i + 1] - pts[i] : pts[i] - pts[i - 1]).normalized;
                     var rot = Quaternion.LookRotation(Geo.X0Z(new Vector2(-dir.y, dir.x)));
-                    Box(new Vector3(pts[i].x, pond.WaterLevel + 0.35f, pts[i].y), new Vector3(1.4f, 0.9f, thick + 0.12f), Palette.Ink, rot);
+                    Box(new Vector3(pts[i].x, waterLevel + 0.35f, pts[i].y), new Vector3(1.4f, 0.9f, thick + 0.12f), Palette.Ink, rot);
                 }
                 End();
             }
@@ -379,7 +378,7 @@ namespace LangGio
                         var p = Geo.PointAt(path.Points, d);
                         bool nearHouse = false;
                         foreach (var h in houses) if (BoxDist(h.Footprint, p) < 6f) { nearHouse = true; break; }
-                        if (!nearHouse || PondAt(ponds, p) != null) continue;
+                        if (!nearHouse || WaterAt(ponds, rivers, p, out _)) continue;
                         var p2 = Geo.PointAt(path.Points, Mathf.Min(len, d + 0.5f));
                         var dir = (p2 - p).normalized;
                         var q = p + new Vector2(-dir.y, dir.x) * (path.Width * 0.5f + 0.4f);
@@ -492,6 +491,23 @@ namespace LangGio
             return null;
         }
 
+        static RiverEntity RiverAt(List<RiverEntity> rivers, Vector2 p)
+        {
+            foreach (var rv in rivers)
+                if (rv.Covers(p, 0f)) return rv;
+            return null;
+        }
+
+        static bool WaterAt(List<PondEntity> ponds, List<RiverEntity> rivers, Vector2 p, out float waterLevel)
+        {
+            var pond = PondAt(ponds, p);
+            if (pond != null) { waterLevel = pond.WaterLevel; return true; }
+            var rv = RiverAt(rivers, p);
+            if (rv != null) { waterLevel = rv.WaterLevelAt(p); return true; }
+            waterLevel = 0f;
+            return false;
+        }
+
         static float BoxDist(Obb b, Vector2 p)
         {
             var d = p - b.c;
@@ -505,6 +521,7 @@ namespace LangGio
             if (!WallTool.InBuildArea(Geo.X0Z(p))) return false;
             foreach (var h in houses) if (h.ContainsPoint(p, 0.3f)) return false;
             if (PondAt(ponds, p) != null) return false;
+            foreach (var rv in EntityManager.OfType<RiverEntity>()) if (rv.Covers(p, 0.4f)) return false;
             foreach (var path in paths) if (path.Covers(p, 0.2f)) return false;
             foreach (var t in trees) if (Vector2.Distance(t.XZ, p) < 1.2f) return false;
             if (gr && gr.NearestSeg(p, 1.0f, out _, out _)) return false;

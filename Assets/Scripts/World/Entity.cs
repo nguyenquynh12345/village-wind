@@ -95,7 +95,9 @@ namespace LangGio
             {
                 if (tint == null) { r.SetPropertyBlock(null); continue; }
                 var t = tint.Value;
-                var c = Color.Lerp(r.sharedMaterial.color, new Color(t.r, t.g, t.b, 1f), t.a);
+                var m = r.sharedMaterial;
+                var baseCol = m ? (m.HasProperty("_Color") ? m.GetColor("_Color") : m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : Color.white) : Color.white;
+                var c = Color.Lerp(baseCol, new Color(t.r, t.g, t.b, 1f), t.a);
                 mpb.Clear();
                 mpb.SetColor("_Color", c);
                 mpb.SetColor("_BaseColor", c);

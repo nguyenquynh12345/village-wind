@@ -47,6 +47,8 @@ namespace LangGio
             if (BlockWorld.I && BlockWorld.I.CoversGround(p, 0.3f)) return "Dưới khối xây";
             foreach (var pond in EntityManager.OfType<PondEntity>())
                 if (pond.Mask != null && pond.Mask.Coverage(x, z, 0.6f) > 0f) return "Dưới nước";
+            foreach (var river in EntityManager.OfType<RiverEntity>())
+                if (river.Covers(p, 0.5f)) return "Dưới nước";
             foreach (var path in EntityManager.OfType<PathEntity>())
                 if (path.Covers(p, 0.4f)) return "Trên đường";
             var gr = WallGraph.I;
@@ -67,7 +69,7 @@ namespace LangGio
         public override void Rebuild()
         {
             var v = NewVisual();
-            Hidden = BlockedReason(P.x, P.z) != null;
+            Hidden = Id != 0 && BlockedReason(P.x, P.z) != null;
             if (Hidden) { v.SetActive(false); return; }
 
             float g = HeightField.I.HeightAt(P.x, P.z);
@@ -81,11 +83,16 @@ namespace LangGio
             crown.SetParent(growth, false);
             crown.gameObject.AddComponent<Sway>();
 
-            // E5: cây tròn sát ao → liễu rủ
+            // E5: cây tròn sát ao / sông → liễu rủ
             IsWillow = false;
             if (Mathf.Abs(P.type) % 4 == 0)
+            {
                 foreach (var pond in EntityManager.OfType<PondEntity>())
                     if (pond.Mask != null && pond.Mask.Coverage(P.x, P.z, 4f) > 0f) { IsWillow = true; break; }
+                if (!IsWillow)
+                    foreach (var river in EntityManager.OfType<RiverEntity>())
+                        if (river.Covers(new Vector2(P.x, P.z), 4f)) { IsWillow = true; break; }
+            }
 
             // Hình cây sinh bằng code (M16): thân thuôn có cành, tán gồm nhiều chùm lá lồi lõm.
             var trunk = new DetailMesh((int)(P.x * 73.1f + P.z * 19.7f) + Mathf.Abs(P.type) * 7);
